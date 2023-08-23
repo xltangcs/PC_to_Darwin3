@@ -1,0 +1,17 @@
+{signal: [
+  {name: 'clk',     wave: 'p...|......|......|.......'},
+  {name: 'rst_n',   wave: '01..|......|......|.......'},
+  ["AXI-Stream slave",
+  {name: "TDATA",   wave: 'x5.6|.....7|.....8|.....x.', data: ['data1', 'data2', 'data3', 'data4']},
+ {name: 'TVALID',  wave: 'x1..|......|......|.....0.', },
+  {name: "TKEEP",   wave: 'x4..|......|......|.....x.',data: ['11']},
+  {name: "TLAST",   wave: 'x0..|......|.....1|.....0.'},
+  {name: 'TREADY',  wave: 'x010|....10|....10|....10.'},
+  ],
+   {},
+  ["handshake",
+  {name: 'TX_DATA', wave: 'xx.5|.....6|.....7|.....8.', data: ['data1', 'data2', 'data3', 'data4']},
+  {name: 'TX_REQ',  wave: 'x0.1|.....0|.....1|.....0.'},
+  {name: 'TX_ACK',  wave: 'x0..|1.....|0.....|1......'},
+  ]
+]}

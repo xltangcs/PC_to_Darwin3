@@ -1,0 +1,24 @@
+
+w
+0x80400020
+0x00008878
+0x000007f8
+0x47fffff8
+r
+0x80800020
+0x40008878
+
+
+
+tx_buffer_ptr[i++] = 0x00208040
+tx_buffer_ptr[i++] = 0x88780000
+tx_buffer_ptr[i++] = 0x07f80000
+tx_buffer_ptr[i++] = 0xfff847ff
+tx_buffer_ptr[i++] = 0x00208080
+tx_buffer_ptr[i++] = 0x88784000
+
+
+
+
+
+
