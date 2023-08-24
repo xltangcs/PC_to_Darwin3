@@ -11,7 +11,7 @@ module RX(
     output                  M_AXIS_TLAST        ,
     output                  RX_ACK              ,
     output                  RX_DONE             ,
-    output      [31:0]      RX_COUNT              
+    output     [31:0]       RX_COUNT              
     );
 
 /******************** define signal *******************/    
@@ -19,7 +19,7 @@ module RX(
     reg                 rx_req_delay1 ;
     reg                 rx_req_delay2 ;
 
-    wire                m_axis_tkeep; 
+    wire    [1:0]       m_axis_tkeep; 
     reg  	            m_axis_tvalid;
 	reg   	            m_axis_tlast;
 
@@ -27,12 +27,13 @@ module RX(
 	reg  				rx_done;
 
     reg     [7:0]       done_count; 
-
+    reg     [31:0]      rx_count; 
+    
     wire                rx_req_edge;
     reg                 rx_req_edge_flag;
-/***********************Áä∂ÊÄÅÊú∫***************************/   
+/***********************◊¥Ã¨ª˙***************************/   
     parameter [1:0]     IDLE            = 2'b01, 
-                        SEND            = 2'b10;
+                         RECEIVE         = 2'b10;
     reg     [1:0]       mst_exec_state;    
 
 /********************** assign *************************/ 
@@ -42,7 +43,7 @@ module RX(
     assign      M_AXIS_TKEEP        =   m_axis_tkeep; 
 	assign 		m_axis_tkeep		=	2'b11;  
     assign      RX_DONE             =   rx_done;
-
+    assign      RX_COUNT            =   rx_count;
     assign      RX_ACK              =   rx_ack;  
 	assign 		rx_en 				= 	M_AXIS_TREADY && M_AXIS_TVALID;                                                                     
 
@@ -62,9 +63,9 @@ module RX(
         .clk        (clk      ),
         .rst_n      (rst_n    ),
         .data       (rx_req_delay1),
-        .pos_edge   ( ),    //‰∏äÂçáÊ≤ø
-        .neg_edge   ( ),    //‰∏ãÈôçÊ≤ø  
-        .data_edge  (rx_req_edge)     //Êï∞ÊçÆËæπÊ≤ø
+        .pos_edge   ( ),    //…œ…˝—ÿ
+        .neg_edge   ( ),    //œ¬Ωµ—ÿ  
+        .data_edge  (rx_req_edge)     // ˝æ›±ﬂ—ÿ
     );
 
 /********************** always ****************************/    
@@ -79,20 +80,20 @@ module RX(
 	        IDLE: 
 	            if (rx_req_edge)
 	            begin
-	                mst_exec_state <= SEND;
+	                mst_exec_state <= RECEIVE;
 	            end
 	            else
 	            begin
 	                mst_exec_state <= IDLE;
 	            end
-	        SEND: 
+	        RECEIVE: 
 	            if (rx_done)
 	            begin
 	                mst_exec_state <= IDLE;
 	            end
 	            else
 	            begin
-	                mst_exec_state <= SEND;
+	                mst_exec_state <= RECEIVE;
 	            end
 	        endcase
 	end
@@ -101,18 +102,15 @@ module RX(
     begin
         if (!rst_n)
         begin
-            rx_req_edge_flag <= 1'b0;
+            m_axis_tvalid <= 1'b0;
         end
         else if (rx_req_edge) begin
-            rx_req_edge_flag <= 1'b1;
+            m_axis_tvalid <= 1'b1;
         end
-        else if(rx_en) begin
-            rx_req_edge_flag <= 1'b0;
-        end
-        else begin
-            rx_req_edge_flag <= rx_req_edge_flag;
-        end
-    end
+        else if (M_AXIS_TREADY)begin
+            m_axis_tvalid <= 1'b0;
+        end  
+    end   
 
     always @( posedge clk )
     begin
@@ -126,35 +124,7 @@ module RX(
         else begin
             rx_ack <= rx_ack;
         end  
-    end
-
-    always @( posedge clk )
-    begin
-        if (!rst_n)
-        begin
-            m_axis_tvalid <= 1'b0;
-        end
-        else if (~m_axis_tvalid && M_AXIS_TREADY && rx_req_edge_flag && (mst_exec_state == SEND)) begin
-            m_axis_tvalid <= 1'b1;
-        end
-        else begin
-            m_axis_tvalid <= 1'b0;
-        end  
-    end
-
-    // always @( posedge clk )
-    // begin
-    //     if (!rst_n || rx_req_edge)
-    //     begin
-    //         m_axis_tlast <= 1'b0;
-    //     end
-    //     else if (~m_axis_tlast && done_count == 8'd100) begin
-    //         m_axis_tlast <= 1'b1;
-    //     end
-    //     else begin
-    //         m_axis_tlast <= 1'b0;
-    //     end  
-    // end   
+    end   
 
     always @( posedge clk )
     begin
@@ -176,7 +146,7 @@ module RX(
         begin
             rx_done <= 1'b0;
         end
-        else if (done_count == 8'd100) begin
+        else if (mst_exec_state == RECEIVE && done_count == 8'd100) begin
             rx_done <= 1'b1;
         end
         else if (rx_req_edge) begin
@@ -191,18 +161,18 @@ module RX(
     begin
         if (!rst_n)
         begin
-            RX_COUNT <= 32'b0;
+            rx_count <= 32'b0;
         end
         else if (rx_en) begin
-            RX_COUNT <= RX_COUNT + 1'b1;
+            rx_count <= rx_count + 1'b1;
         end
-        else if(mst_exec_state == IDLE)begin
-            RX_COUNT <= 32'b0;
+        else if(mst_exec_state == IDLE && rx_req_edge)begin
+            rx_count <= 32'b0;
         end  
     end  
 
 
-    /* always Ê®°Êùø
+    /* always ƒ£∞Â
     always @( posedge clk )
     begin
         if (!rst_n)

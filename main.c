@@ -22,10 +22,11 @@
 #define MEM_BASE_ADDR       (DDR_BASE_ADDR + 0x1000000)     //0x01100000
 #define TX_BUFFER_BASE      (MEM_BASE_ADDR + 0x00100000)    //0x01200000
 #define RX_BUFFER_BASE      (MEM_BASE_ADDR + 0x00300000)    //0x01400000
+#define CONTROL_BASE_ADDR   XPAR_AXI_LITE_CONTROL_0_S00_AXI_BASEADDR //0x43C00000
 #define RESET_TIMEOUT_COUNTER   10000    //复位时间
 #define GPIO_DEVICE_ID  	XPAR_XGPIOPS_0_DEVICE_ID
 #define PL_KEY_LEFT     	54
-#define PL_LED_ROGHT 		55
+#define PL_KEY_RIGHT 		55
 #define GPIO_TIK 			56
 #define GPIO_RESET 			57
 
@@ -35,7 +36,8 @@
 
 
 /************************** Function Prototypes ******************************/
-void Darwin_system_reset(u32 value);
+void Darwin_system_reset();
+void  TIK_generation(u32 tik_time);
 static void tx_intr_handler(void *callback);
 static void rx_intr_handler(void *callback);
 static int setup_intr_system(XScuGic * int_ins_ptr, XAxiDma * axidma_ptr,
@@ -62,20 +64,29 @@ int main(void)
     u32 *tx_buffer_ptr;
     u32 *rx_buffer_ptr;
     XAxiDma_Config *config;
+
+    xil_printf("\r\n--- Entering main() --- \r\n");
     Xil_DCacheDisable();   //禁用cache
 
 	/* Initialize the GPIO driver. */
 	ConfigPtr = XGpioPs_LookupConfig(GPIO_DEVICE_ID);
 	XGpioPs_CfgInitialize(&Gpio, ConfigPtr, ConfigPtr->BaseAddr);
+	/*  Set GPIO */
+    XGpioPs_SetDirectionPin     (&Gpio, PL_KEY_LEFT , 1);
+    XGpioPs_SetDirectionPin     (&Gpio, GPIO_RESET  , 1);
+    XGpioPs_SetDirectionPin     (&Gpio, PL_KEY_RIGHT, 1);
+    XGpioPs_SetDirectionPin     (&Gpio, GPIO_TIK    , 1);
+	XGpioPs_SetOutputEnablePin  (&Gpio, PL_KEY_LEFT , 1);
+	XGpioPs_SetOutputEnablePin  (&Gpio, GPIO_RESET  , 1);
+	XGpioPs_SetOutputEnablePin  (&Gpio, PL_KEY_RIGHT, 1);
+	XGpioPs_SetOutputEnablePin  (&Gpio, GPIO_TIK    , 1);
 
-    Darwin_system_reset(ZERO);
-    usleep(1000);
-    Darwin_system_reset(ONE);
 
     tx_buffer_ptr = (u32 *) TX_BUFFER_BASE;
     rx_buffer_ptr = (u32 *) RX_BUFFER_BASE;
 
-    xil_printf("\r\n--- Entering main() --- \r\n");
+	/*  Reset */
+    Darwin_system_reset( );
 
     config = XAxiDma_LookupConfig(DMA_DEV_ID);
     if (!config) {
@@ -103,6 +114,9 @@ int main(void)
     }
 
     //初始化标志信号
+    u32 tx_length = 6;
+    u32 rx_length = 0;
+    u32 transmit_flag;
     tx_done = 0;
     rx_done = 0;
     error   = 0;
@@ -116,21 +130,19 @@ int main(void)
     tx_buffer_ptr[i++] = 0x88784000;
 
 
-    XAxiDma_SimpleTransfer(&axidma, (UINTPTR) tx_buffer_ptr, 24, XAXIDMA_DMA_TO_DEVICE); //字节为单位
-    u32 tx = TX_BUFFER_BASE;
-    for(i = 0;i<6;i++)
-    {
-    	xil_printf("the tx address %x is %x\n\r", tx, * (u32 *) tx);
-    	tx+=4;
-    }
-    XAxiDma_SimpleTransfer(&axidma, (UINTPTR) rx_buffer_ptr, 16, XAXIDMA_DEVICE_TO_DMA);
+    XAxiDma_SimpleTransfer(&axidma, (UINTPTR) tx_buffer_ptr, tx_length * 4, XAXIDMA_DMA_TO_DEVICE); //字节为单位
+    usleep(1000);
+    transmit_flag = (unsigned int) Xil_In32(CONTROL_BASE_ADDR+4);
+    while(!transmit_flag>>31); //rx_done;
+    rx_length = (unsigned int) Xil_In32(CONTROL_BASE_ADDR+4);
+    printf("rx_length = %x\n\r",(unsigned int) Xil_In32(CONTROL_BASE_ADDR+4));
+    XAxiDma_SimpleTransfer(&axidma, (UINTPTR) rx_buffer_ptr, rx_length * 2, XAXIDMA_DEVICE_TO_DMA);
     u32 rx = RX_BUFFER_BASE;
-    for(i = 0;i<4;i++)
+    for(i = 0;i<rx_length/2;i++)
     {
     	xil_printf("the rx address %x is %x\n\r", rx, * (u32 *) rx);
     	rx+=4;
     }
-
     while (!tx_done && !rx_done && !error)
         ;
     //传输出错
@@ -271,22 +283,22 @@ static void disable_intr_system(XScuGic * int_ins_ptr, u16 tx_intr_id,
     XScuGic_Disconnect(int_ins_ptr, rx_intr_id);
 }
 
-void Darwin_system_reset(u32 value)
+void Darwin_system_reset( )
 {
-	/*
-	 * Set the direction for the pin and
-	 * Enable the pin enable
-	 * 0:input 1:output
-	 */
-    XGpioPs_SetDirectionPin     (&Gpio, PL_KEY_LEFT , 1);
-    XGpioPs_SetDirectionPin     (&Gpio, GPIO_RESET  , 1);
-	XGpioPs_SetOutputEnablePin  (&Gpio, PL_KEY_LEFT , 1);
-	XGpioPs_SetOutputEnablePin  (&Gpio, GPIO_RESET  , 1);
-	XGpioPs_WritePin            (&Gpio, PL_KEY_LEFT , value);
-	XGpioPs_WritePin            (&Gpio, GPIO_RESET  , value);
+	XGpioPs_WritePin            (&Gpio, PL_KEY_LEFT , 0);
+	XGpioPs_WritePin            (&Gpio, GPIO_RESET  , 0);
+	XGpioPs_WritePin            (&Gpio, PL_KEY_RIGHT, 0);
+	XGpioPs_WritePin            (&Gpio, GPIO_TIK    , 0);
+	usleep(1000);
+	XGpioPs_WritePin            (&Gpio, PL_KEY_LEFT , 1);
+	XGpioPs_WritePin            (&Gpio, GPIO_RESET  , 1);
+}
 
-	// XGpioPs_SetDirectionPin     (&Gpio, PL_LED_ROGHT, 1);
-	// XGpioPs_SetOutputEnablePin  (&Gpio, PL_LED_ROGHT, 1);
-	// XGpioPs_SetDirectionPin     (&Gpio, GPIO_TIK    , 1);
-	// XGpioPs_SetOutputEnablePin  (&Gpio, GPIO_TIK    , 1);
+void  TIK_generation(u32 tik_time)
+{
+	XGpioPs_WritePin            (&Gpio, PL_KEY_RIGHT, 1);
+	XGpioPs_WritePin            (&Gpio, GPIO_TIK    , 1);
+	usleep(tik_time);
+	XGpioPs_WritePin            (&Gpio, PL_KEY_RIGHT, 0);
+	XGpioPs_WritePin            (&Gpio, GPIO_TIK    , 0);
 }

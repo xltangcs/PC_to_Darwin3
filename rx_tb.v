@@ -12,6 +12,8 @@ wire       [1:0]       M_AXIS_TKEEP        ;
 wire                   M_AXIS_TLAST        ;
 wire                   RX_ACK         ;
 wire                   RX_ACK_edge    ;
+wire                   RX_DONE    ;
+wire       [31:0]      RX_COUNT   ;
 reg                    enable;
 
 always #10 clk = ~clk;
@@ -19,8 +21,11 @@ always #10 clk = ~clk;
 initial begin
     clk  = 1'b0;
     rst_n = 1'b0;
+    enable = 1'b0;
+    RX_REQ  <= 1'b0;
+    #2000
     enable = 1'b1;
-    #20
+    #30
     rst_n = 1'b1;
     M_AXIS_TREADY <= 1'b1;
     RX_DATA <= 16'h1111;
@@ -63,7 +68,10 @@ RX u_rx(
     .M_AXIS_TVALID   (M_AXIS_TVALID  )    ,
     .M_AXIS_TKEEP    (M_AXIS_TKEEP   )    ,
     .M_AXIS_TLAST    (M_AXIS_TLAST   )    ,
-    .RX_ACK          (RX_ACK    )       
+    .RX_ACK          (RX_ACK    )         ,
+    .RX_DONE         (RX_DONE )           ,
+    .RX_COUNT        (RX_COUNT)
+
     );
 
 
