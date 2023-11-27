@@ -1,0 +1,13 @@
+# open all cores clock
+0 write 0  0 "0x00b0f" "0xffffffff"
+0 write 0  0 "0x00bf0" "0xffffffff"
+0 write 0  0 "0x00c0f" "0xffffffff"
+0 write 0  0 "0x00cf0" "0xffffffff"
+0 write 0  0 "0x00d0f" "0xffffffff"
+0 write 0  0 "0x00df0" "0xffffffff"
+# set clock to 333Mhz（0x14d=333,修改14d得到想要的时钟频率）
+0 write 0  0 "0x002_0f" "0x14da00"
+0 write 0  0 "0x002_0f" "0x14de02"
+# reset 
+0 write 0  0 "0x003_f0" "0x310000"
+0 write 0  0 "0x000_f0" "0x10000d"
