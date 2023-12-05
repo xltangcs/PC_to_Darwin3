@@ -11,6 +11,7 @@ module Send(
     output                  TX_REQ              ,
     input                   TX_ACK              ,   
 
+    input     wire          is_receive          ,
     output                  SEND_DONE
     );
 /******************** define signal *******************/    
@@ -19,14 +20,22 @@ module Send(
     wire                tx_ack_edge   ;  
     reg                 tx_ack_en   ;  
     reg                 send_done;  
-    
     reg                 s_axis_tready;  
+
+    reg      [2:0]      pkg_type;
+    reg      [1:0]      flit_type;
+    reg      [4:0]      flit_cnt_16bit;
+
+    wire                send_en;
   
 /********************** assign *************************/ 
     assign      S_AXIS_TREADY       =   s_axis_tready;  
     assign      TX_DATA             =   tx_data     ;   
     assign      TX_REQ              =   tx_req     ;
     assign      SEND_DONE           =   send_done;
+
+    assign      send_en             = (pkg_type == 3'b010) ?
+                                      is_receive : (S_AXIS_TVALID && S_AXIS_TREADY && tx_ack_en);
 
 /********************** edge detection ********************** **/ 
     edge_detection tx_ack_edge_detection(
@@ -89,12 +98,11 @@ module Send(
         end          
         else if(S_AXIS_TVALID) begin
             send_done <= 1'b0;
-        end    
-
+        end
     end
 
     always @(posedge clk) begin
-        if (S_AXIS_TVALID && S_AXIS_TREADY && tx_ack_en) begin
+        if (send_en) begin
             tx_data <= S_AXIS_TDATA;
         end
     end
@@ -103,7 +111,7 @@ module Send(
         if (!rst_n) begin
             tx_req <= 1'b0;
         end
-        else if (S_AXIS_TVALID && S_AXIS_TREADY && tx_ack_en) begin
+        else if (send_en) begin
             tx_req <= ~tx_req;
         end
     end 
@@ -134,6 +142,36 @@ module Send(
             tx_ack_en <= 1'b0;
         end
     end 
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            pkg_type <= 3'b000;
+        end
+        else if (curr_state == SEND && flit_cnt_16bit == 4'b0000) begin
+            pkg_type = S_AXIS_TDATA[24:22];
+        end
+    end  
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            flit_cnt_16bit <= 34'b0000;
+        end
+        else if (pkg_type == 3'b000 && flit_cnt_16bit == 4'b0100) begin //spike pkg
+            flit_cnt_16bit <= 4'b000;
+        end
+        else if (pkg_type == 3'b001 && flit_cnt_16bit == 4'b1000) begin //write pkg
+            flit_cnt_16bit <= 4'b000;
+        end        
+        else if (pkg_type == 3'b010 && flit_cnt_16bit == 4'b0100) begin //read pkg
+            flit_cnt_16bit <= 4'b000;
+        end
+        else if(flit_cnt_16bit == 4'b1000) begin
+            flit_cnt_16bit <= 4'b000;
+        end
+        else begin
+            flit_cnt_16bit <= flit_cnt_16bit + 1;
+        end  
+    end  
 
 
 /* always 模板
