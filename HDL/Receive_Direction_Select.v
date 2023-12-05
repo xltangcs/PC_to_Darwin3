@@ -19,15 +19,11 @@ module Receive_Direction_Select(
     input                           RX_ACK      ,
 
     output               [1:0]      Receive_Direction,
-    input                           RECE_DONE
+    input                           RECE_DONE,
+    output                          is_receive
 
 );
 /******************** define signal *******************/    
-wire                 E_RX_REQ_delay;
-wire                 S_RX_REQ_delay;
-wire                 W_RX_REQ_delay;
-wire                 N_RX_REQ_delay;
-
 wire                 e_rx_req_edge;
 wire                 s_rx_req_edge;
 wire                 w_rx_req_edge;
@@ -37,32 +33,7 @@ reg      [1:0]       receive_direction;
 
 /******************** assign *******************/ 
 assign      Receive_Direction = receive_direction;
-
-/******************** delay_3_clk *******************/    
-delay_3_clk e_delay_3_clk(
-    .clk         (clk           ), 
-    .rst_n       (rst_n         ), 
-    .signal      (E_RX_REQ      ), 
-    .signal_delay(E_RX_REQ_delay)
-);
-delay_3_clk s_delay_3_clk(
-    .clk         (clk           ), 
-    .rst_n       (rst_n         ), 
-    .signal      (S_RX_REQ      ), 
-    .signal_delay(S_RX_REQ_delay)
-);
-delay_3_clk w_delay_3_clk(
-    .clk         (clk           ), 
-    .rst_n       (rst_n         ), 
-    .signal      (W_RX_REQ      ), 
-    .signal_delay(W_RX_REQ_delay)
-);
-delay_3_clk n_delay_3_clk(
-    .clk         (clk           ), 
-    .rst_n       (rst_n         ), 
-    .signal      (N_RX_REQ      ), 
-    .signal_delay(N_RX_REQ_delay)
-);
+assign      is_receive  = e_rx_req_edge || s_rx_req_edge || w_rx_req_edge || n_rx_req_edge;
 
 /******************** edge detection *******************/    
 edge_detection e_rx_req_edge_detection(
